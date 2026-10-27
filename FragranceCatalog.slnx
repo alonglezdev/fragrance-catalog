@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FragranceCatalog.Api/FragranceCatalog.Api.csproj" />
+    <Project Path="src/FragranceCatalog.Application/FragranceCatalog.Application.csproj" />
+    <Project Path="src/FragranceCatalog.Domain/FragranceCatalog.Domain.csproj" />
+    <Project Path="src/FragranceCatalog.Infrastructure/FragranceCatalog.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FragranceCatalog.Api.Tests/FragranceCatalog.Api.Tests.csproj" />
+    <Project Path="tests/FragranceCatalog.Application.Tests/FragranceCatalog.Application.Tests.csproj" />
+    <Project Path="tests/FragranceCatalog.Domain.Tests/FragranceCatalog.Domain.Tests.csproj" />
+    <Project Path="tests/FragranceCatalog.Infrastructure.Tests/FragranceCatalog.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

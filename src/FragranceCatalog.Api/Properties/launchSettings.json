@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "FragranceCatalog.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59145;http://localhost:59146"
+    }
+  }
+}
