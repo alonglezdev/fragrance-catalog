@@ -5,6 +5,7 @@ namespace FragranceCatalog.Domain.Sync;
 /// <summary>
 /// One execution of the catalog sync, kept as history. It starts as <see cref="SyncStatus.Running"/> and ends exactly once,
 /// either succeeded with change counts or failed; errors per page are recorded in both cases.
+/// The only way back is <see cref="ReopenAfterFailedSave"/>, when the end of the run could not be stored.
 /// </summary>
 public sealed class SyncRun
 {
@@ -103,6 +104,25 @@ public sealed class SyncRun
         EnsureRunning();
 
         Finish(SyncStatus.Failed, finishedAt);
+    }
+
+    /// <summary>
+    /// Takes back a success that could not be stored together with its catalog changes, so the run can end as failed:
+    /// those changes were rolled back, so the counts no longer describe anything that happened.
+    /// </summary>
+    public void ReopenAfterFailedSave()
+    {
+        if (Status != SyncStatus.Succeeded)
+        {
+            throw new InvalidOperationException($"Sync run {Id} is {Status}; only a succeeded run can be reopened.");
+        }
+
+        CreatedCount = 0;
+        PriceChangedCount = 0;
+        DiscontinuedCount = 0;
+        ReactivatedCount = 0;
+        Status = SyncStatus.Running;
+        FinishedAt = null;
     }
 
     private void Finish(SyncStatus status, DateTimeOffset finishedAt)

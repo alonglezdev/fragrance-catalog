@@ -58,6 +58,34 @@ public sealed class SyncRunTests
     }
 
     [Fact]
+    public void ReopenAfterFailedSave_SucceededRun_ClearsResultAndCanFail()
+    {
+        var run = SyncRun.Start(SyncTrigger.Manual, _startedAt);
+        run.RecordError("https://magnaperfumes.com/a", "Timeout");
+        run.Complete(new SyncChangeCounts(1, 2, 3, 4), _startedAt.AddMinutes(1));
+
+        run.ReopenAfterFailedSave();
+        run.Fail(_startedAt.AddMinutes(2));
+
+        run.Status.ShouldBe(SyncStatus.Failed);
+        run.FinishedAt.ShouldBe(_startedAt.AddMinutes(2));
+        run.CreatedCount.ShouldBe(0);
+        run.PriceChangedCount.ShouldBe(0);
+        run.DiscontinuedCount.ShouldBe(0);
+        run.ReactivatedCount.ShouldBe(0);
+        run.ErrorCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ReopenAfterFailedSave_FailedRun_ThrowsInvalidOperationException()
+    {
+        var run = SyncRun.Start(SyncTrigger.Manual, _startedAt);
+        run.Fail(_startedAt.AddMinutes(1));
+
+        Should.Throw<InvalidOperationException>(run.ReopenAfterFailedSave);
+    }
+
+    [Fact]
     public void Complete_AlreadyFailedRun_ThrowsInvalidOperationException()
     {
         var run = SyncRun.Start(SyncTrigger.Scheduled, _startedAt);

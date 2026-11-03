@@ -1,3 +1,4 @@
+using FragranceCatalog.Application.Sync;
 using FragranceCatalog.Infrastructure.Suppliers.Magna;
 
 namespace FragranceCatalog.Infrastructure.Tests.Suppliers.Magna;
@@ -5,6 +6,7 @@ namespace FragranceCatalog.Infrastructure.Tests.Suppliers.Magna;
 public sealed class SitemapReaderTests
 {
     private const string ProductsType = "products";
+    private const string MaintenancePage = "<html><body>Mantenimiento<br></body></html>";
 
     private const string IndexWithTwoProductPages = """
         <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -66,5 +68,11 @@ public sealed class SitemapReaderTests
         var urls = _reader.ReadPageUrls(UrlSetWithDuplicate);
 
         urls.ShouldBe(["https://magnaperfumes.com/a/", "https://magnaperfumes.com/b/"]);
+    }
+
+    [Fact]
+    public void ReadPageUrls_ContentIsNotXml_ThrowsSupplierCatalogException()
+    {
+        Should.Throw<SupplierCatalogException>(() => _reader.ReadPageUrls(MaintenancePage));
     }
 }

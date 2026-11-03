@@ -18,6 +18,29 @@ public sealed class SyncSettingsTests
         settings.RequestTimeoutSeconds.ShouldBe(30);
     }
 
+    [Theory]
+    [InlineData(19, false)]
+    [InlineData(20, false)]
+    [InlineData(21, true)]
+    public void IsFailureThresholdExceeded_FailuresOutOfOneHundred_OnlyExceedsAboveThreshold(int failedCount, bool expected)
+    {
+        var settings = SyncSettings.CreateDefault();
+
+        var isExceeded = settings.IsFailureThresholdExceeded(failedCount, 100);
+
+        isExceeded.ShouldBe(expected);
+    }
+
+    [Fact]
+    public void IsFailureThresholdExceeded_FailuresBetweenWholePercents_ComparesExactly()
+    {
+        var settings = SyncSettings.CreateDefault();
+
+        var isExceeded = settings.IsFailureThresholdExceeded(201, 1000);
+
+        isExceeded.ShouldBeTrue();
+    }
+
     [Fact]
     public void Update_ValidValues_ReplacesAllSettings()
     {

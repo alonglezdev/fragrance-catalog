@@ -345,6 +345,27 @@ En FragranceCatalog.Api:
 - Mapeo de Result a respuestas: éxito -> 200/201/204, errores -> ProblemDetails con el código.
 - OpenAPI + Scalar solo en Development.
 - CORS configurable para el futuro frontend Angular.
+- SyncSupplierCatalog asume que nunca corren dos syncs a la vez (al empezar, cierra como
+  interrumpido cualquier run en Running). Para garantizarlo:
+  - El job de sync lleva DisableConcurrentExecution con un timeout corto y
+    AutomaticRetry(Attempts = 0). Sin esto, Hangfire reintenta hasta 10 veces un sync que
+    falló, y cada reintento es un sync completo contra Magna.
+  - POST /api/admin/sync responde 409 Conflict con ProblemDetails si ya hay un run en Running,
+    en vez de encolar otro sync que correría justo después.
+  - Prueba: con un run en Running, el endpoint devuelve 409 y no encola nada.
+- Runs huérfanos: si la API se reinicia a mitad de un sync, la fila queda en Running y el 409
+  bloquearía "Actualizar ahora" hasta el siguiente sync. Como hay una sola instancia de la API
+  y el servidor de Hangfire vive dentro de ella, cualquier run en Running al arrancar es huérfano:
+  - Extrae de SyncSupplierCatalog el cierre de runs interrumpidos a su propio caso de uso
+    (por ejemplo CloseInterruptedSyncRuns) y úsalo en los dos lugares: al empezar cada sync y
+    al arrancar la API.
+  - Al arrancar, se ejecuta antes de que el servidor de Hangfire empiece a procesar jobs, para
+    no cerrar un sync que acaba de empezar.
+  - Si Hangfire vuelve a encolar el job que se interrumpió, ese sync corre normal; no hace
+    falta evitarlo.
+  - Deja escrito en la XML Doc que esto asume una sola instancia de la API.
+  - Prueba: con un run en Running antes de arrancar, después del arranque está Failed como
+    interrumpido y POST /api/admin/sync acepta un sync nuevo.
 - Cada ejecución del job de sync crea su propio scope de DI, para que cada sync tenga su
   propia instancia de ISupplierCatalogSource (la pausa entre peticiones no se mezcla entre syncs).
 - Hangfire con Hangfire.PostgreSql: recurring job diario según SyncSettings (hora, zona
@@ -365,6 +386,9 @@ Al terminar: build, test, resumen y detente.
 **Revisa**
 
 - [ ] `Program.cs` se lee en menos de un minuto.
+- [ ] El job de sync no se reintenta solo y no puede correr dos veces a la vez.
+- [ ] Apretar "Actualizar ahora" con un sync en curso no encola otro.
+- [ ] Reiniciar la API a mitad de un sync no deja "Actualizar ahora" bloqueado.
 - [ ] Ningún endpoint devuelve entidades.
 - [ ] Las credenciales de los admins no están en el repo.
 

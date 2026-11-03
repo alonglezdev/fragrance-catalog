@@ -1,4 +1,6 @@
+using System.Xml;
 using System.Xml.Linq;
+using FragranceCatalog.Application.Sync;
 
 namespace FragranceCatalog.Infrastructure.Suppliers.Magna;
 
@@ -29,11 +31,23 @@ public sealed class SitemapReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(xml);
 
-        return XDocument.Parse(xml)
+        return ParseXml(xml)
             .Descendants(_sitemapNamespace + entryElementName)
             .Select(entry => entry.Element(_sitemapNamespace + "loc")?.Value.Trim())
             .OfType<string>()
             .Where(location => location.Length > 0);
+    }
+
+    private static XDocument ParseXml(string xml)
+    {
+        try
+        {
+            return XDocument.Parse(xml);
+        }
+        catch (XmlException exception)
+        {
+            throw new SupplierCatalogException($"The sitemap is not valid XML: {exception.Message}", exception);
+        }
     }
 
     private static bool HasTypeParameter(string url, string expectedType)

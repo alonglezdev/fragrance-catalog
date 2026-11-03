@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
@@ -27,11 +28,27 @@ public sealed partial class MagnaProductPageParser(IOptions<MagnaOptions> option
         ArgumentException.ThrowIfNullOrWhiteSpace(html);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceUrl);
 
+        try
+        {
+            return ParsePage(html, sourceUrl);
+        }
+        catch (Exception exception) when (exception is FormatException or OverflowException or InvalidOperationException or KeyNotFoundException or JsonException)
+        {
+            throw new SupplierCatalogException($"Unexpected product data in {sourceUrl}: {exception.Message}", exception);
+        }
+    }
+
+    private SupplierProduct ParsePage(string html, string sourceUrl)
+    {
         using var document = new HtmlParser().ParseDocument(html);
         var jsonLdProduct = JsonLdProduct.Read(document, _options.JsonLdSelector)
             ?? throw new SupplierCatalogException($"No schema.org Product with offers in {sourceUrl}.");
         var catalystProduct = CatalystProduct.Find(document, _options.CatalystPayloadMarker, jsonLdProduct, _options.GenderFieldName);
         var (regularPrice, salePrice) = ReadPrices(jsonLdProduct, catalystProduct, sourceUrl);
+        if (regularPrice <= 0 || salePrice <= 0)
+        {
+            throw new SupplierCatalogException($"Prices must be above zero in {sourceUrl}.");
+        }
 
         return new SupplierProduct(
             ReadSupplierProductId(jsonLdProduct, catalystProduct, sourceUrl),

@@ -167,6 +167,50 @@ public sealed class ProductTests
     }
 
     [Fact]
+    public void ValidateSupplierData_ValidData_DoesNotThrow()
+    {
+        var details = new SupplierProductDetails("https://magnaperfumes.com/a", "Asad", Guid.CreateVersion7(), Gender.Men, 100, string.Empty, true);
+
+        Should.NotThrow(() => Product.ValidateSupplierData(details, 1000m, 900m, [ImageUrl]));
+    }
+
+    [Theory]
+    [InlineData("https://magnaperfumes.com/a", " ", 1000, null, ImageUrl)]
+    [InlineData("not-a-url", "Asad", 1000, null, ImageUrl)]
+    [InlineData("https://magnaperfumes.com/a", "Asad", 0, null, ImageUrl)]
+    [InlineData("https://magnaperfumes.com/a", "Asad", 1000, 0, ImageUrl)]
+    [InlineData("https://magnaperfumes.com/a", "Asad", 1000, null, "/images/a.jpg")]
+    public void ValidateSupplierData_InvalidData_ThrowsArgumentException(string sourceUrl, string name, int regularPrice, int? salePrice, string imageUrl)
+    {
+        var details = new SupplierProductDetails(sourceUrl, name, Guid.CreateVersion7(), Gender.Men, 100, string.Empty, true);
+
+        Should.Throw<ArgumentException>(() => Product.ValidateSupplierData(details, regularPrice, salePrice, [imageUrl]));
+    }
+
+    [Fact]
+    public void ReplaceImages_SameUrlsInSameOrder_KeepsExistingImages()
+    {
+        var product = CreateProduct();
+        product.ReplaceImages([ImageUrl, OtherImageUrl]);
+        var existingImages = product.Images.ToList();
+
+        product.ReplaceImages([ImageUrl, OtherImageUrl]);
+
+        product.Images.ShouldBe(existingImages);
+    }
+
+    [Fact]
+    public void ReplaceImages_SameUrlsInNewOrder_FollowsSupplierOrder()
+    {
+        var product = CreateProduct();
+        product.ReplaceImages([ImageUrl, OtherImageUrl]);
+
+        product.ReplaceImages([OtherImageUrl, ImageUrl]);
+
+        product.Images.Select(image => image.Url).ShouldBe([OtherImageUrl, ImageUrl]);
+    }
+
+    [Fact]
     public void ReplaceImages_RelativeUrl_ThrowsAndKeepsPreviousImages()
     {
         var product = CreateProduct();

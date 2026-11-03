@@ -32,13 +32,18 @@ public sealed class SupplierPrice
     /// <summary>What the store actually pays: the offer when there is one, otherwise the list price.</summary>
     public decimal Cost => SalePrice ?? RegularPrice;
 
-    internal static SupplierPrice Create(Guid productId, decimal regularPrice, decimal? salePrice, DateTimeOffset capturedAt)
+    internal static void ValidateAmounts(decimal regularPrice, decimal? salePrice)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(regularPrice);
         if (salePrice is { } offer)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(offer, nameof(salePrice));
         }
+    }
+
+    internal static SupplierPrice Create(Guid productId, decimal regularPrice, decimal? salePrice, DateTimeOffset capturedAt)
+    {
+        ValidateAmounts(regularPrice, salePrice);
 
         return new SupplierPrice(Guid.CreateVersion7(), productId, regularPrice, salePrice, capturedAt.ToUniversalTime());
     }

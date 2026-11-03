@@ -20,6 +20,12 @@ internal sealed class StubHttpHandler : HttpMessageHandler
         return this;
     }
 
+    public StubHttpHandler Throw(string url, Exception exception)
+    {
+        _responses[url] = _ => Task.FromException<HttpResponseMessage>(exception);
+        return this;
+    }
+
     public StubHttpHandler Hang(string url)
     {
         _responses[url] = async cancellationToken =>
