@@ -6,31 +6,40 @@ Catálogo de solo consulta. Muestra todo lo que el proveedor tiene disponible, c
 
 - Sitio: `https://magnaperfumes.com` (BigCommerce, storefront Catalyst con Next.js, HTML renderizado en servidor).
 - Hay permiso del proveedor para usar sus fotos y datos.
-- Índice de sitemap: `https://magnaperfumes.com/sitemap.xml`. Contiene sub-sitemaps; el de productos es `sitemap.xml?type=products&page=N` (puede haber varias páginas).
+- Índice de sitemap: `https://magnaperfumes.com/sitemap.xml`. Contiene sub-sitemaps; el de productos es `sitemap.xml?type=products&page=N` (puede haber varias páginas; se leen todas las que liste el índice).
 - Fotos en `https://cdn11.bigcommerce.com/s-2vt02okold/images/stencil/{ancho}w/products/{productId}/{imageId}/{archivo}`.
   - El número después de `/products/` es el ID del producto en el proveedor.
   - Se puede pedir otro ancho cambiando `{ancho}w` (ej. `640w`, `1280w`).
 - Precio: si hay oferta aparecen dos montos (normal y oferta, ej. `$3,269` y `$2,949`); si no, uno solo. Moneda MXN.
 - Nombre de ejemplo: `Hawas Private Dulce Extrait de Parfum 100ml Unisex`, marca `Rasasi`.
-- Disponibilidad: **por confirmar** en la fase 3 revisando páginas de productos agotados.
+- Disponibilidad: confirmada en la fase 3. Cada página trae `offers.availability` en el JSON-LD (`InStock` / `OutOfStock`). No se encontró ningún agotado publicado: lo más probable es que Magna oculte los agotados y desaparezcan del sitemap, con lo que el sync los marca como descontinuados.
+
+Cada página de producto trae dos fuentes de datos estructurados:
+
+- **JSON-LD `schema.org/Product`** (el bloque que tiene `offers`): nombre, marca, SKU, descripción en texto plano, una imagen con la plantilla `{:size}`, precio (`offers.priceSpecification.price`) y disponibilidad.
+- **Datos embebidos de Catalyst** (payload de Next.js en `self.__next_f.push`): objeto del producto con `entityId`, `prices.basePrice`, `prices.salePrice`, `inventory.isInStock` y el campo propio `Género` (`Dama`, `Caballero`, `Unisex`).
 
 ### Datos a extraer por producto
 
 | Campo | Regla |
 | --- | --- |
-| SupplierProductId | De la URL de la foto (`/products/{id}/`). Si hay JSON-LD con `sku` o `productID`, preferirlo y documentar cuál se usó. |
+| SupplierProductId | `entityId` del producto en BigCommerce (datos de Catalyst; si faltan, el número de `/products/{id}/` en la URL de la foto). **No se usa el SKU**: el proveedor puede editarlo y el sync tomaría el producto como nuevo. |
 | SourceUrl | URL de la página. |
-| Name | Encabezado del producto. |
-| Brand | Marca mostrada sobre el nombre. |
-| RegularPrice | Precio normal. |
-| SalePrice | Precio de oferta, o null. |
-| Images | Todas las URLs de fotos únicas, en orden. |
-| Description | Texto de la descripción (texto plano, sin HTML). |
-| Gender | Del nombre: `Dama` -> Women, `Caballero` -> Men, `Unisex` -> Unisex, si no -> Unspecified. |
-| SizeMl | Del nombre, patrón `(\d+)\s?ml`. Null si no aparece. |
-| IsAvailable | Según el marcador que se confirme en la fase 3. |
+| Name | `name` del JSON-LD. |
+| Brand | `brand.name` del JSON-LD. |
+| RegularPrice | `prices.basePrice` de Catalyst. Sin datos de Catalyst: el precio del JSON-LD. |
+| SalePrice | `prices.salePrice` de Catalyst, o null. Sin datos de Catalyst: null. |
+| Images | Galería del HTML (selector en configuración), URLs únicas en orden, al ancho configurado. Si la galería no da nada, la imagen del JSON-LD. |
+| Description | `description` del JSON-LD (texto plano), sin espacios al inicio ni al final. |
+| Gender | Campo `Género` de Catalyst; si no viene, del nombre. En ambos: `Dama`/`Mujer` -> Women, `Caballero`/`Hombre` -> Men, `Unisex` -> Unisex; si no -> Unspecified. |
+| SizeMl | Del nombre, primer patrón `(\d+)\s?ml`. Null si no aparece. |
+| IsAvailable | `offers.availability` del JSON-LD es `InStock`. |
 
-Estrategia de extracción: primero JSON-LD `schema.org/Product` si existe; si no, selectores CSS definidos en configuración (`appsettings`), no en código.
+Validación de precio: el precio del JSON-LD debe coincidir con `prices.salePrice` o con `prices.basePrice` de Catalyst; en ambos casos se usan los dos precios de Catalyst. Si no coincide con ninguno, la página se reporta como error del sync para esa URL.
+
+**Forma de una oferta sin verificar:** Magna no tenía productos en oferta al construir el parser, así que no se ha visto cómo reporta el JSON-LD una oferta real (si muestra el precio de oferta o el normal); por eso la validación acepta ambos. La primera vez que aparezca una oferta, hay que guardar su página como `tests/FragranceCatalog.Infrastructure.Tests/Fixtures/Magna/product-on-sale.html`.
+
+Selectores CSS, marcador del payload de Catalyst, nombre del campo de género y ancho de imagen: en configuración (`MagnaOptions`), no en código.
 
 ### Reglas de scraping
 

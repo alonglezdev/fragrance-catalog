@@ -197,18 +197,34 @@ En Application/Sync/ crea el caso de uso SyncSupplierCatalog según la sección 
 Divide la lógica para que se lea fácil: por ejemplo, un paso que obtiene los datos
 y otro que calcula el plan de cambios (función pura y testeable) antes de aplicarlo.
 
+Errores del proveedor (notas de la Fase 3):
+- Hoy MagnaCatalogSource deja salir HttpRequestException (500, o 404 si quitaron el producto
+  entre leer el sitemap y bajar la página) y TimeoutException, además de SupplierCatalogException.
+  Application no debe conocer errores de HTTP: en Infrastructure, envuelve esas excepciones en
+  SupplierCatalogException (con la original como InnerException y la URL en el mensaje), ajusta
+  la XML Doc de ISupplierCatalogSource y las pruebas de MagnaCatalogSource.
+- El caso de uso atrapa solo SupplierCatalogException por producto: lo registra como error de esa
+  URL y sigue. OperationCanceledException del CancellationToken del sync no se atrapa.
+- Si falla GetProductUrlsAsync (no hay sitemap, no hay lista de productos), el sync termina como
+  Failed con ese error registrado y no se aplica ningún cambio.
+- MagnaCatalogSource recuerda su última petición para respetar la pausa: el caso de uso usa una
+  sola instancia de ISupplierCatalogSource durante todo el sync, nunca una nueva por producto.
+
 Pruebas en Application.Tests con un ISupplierCatalogSource falso: producto nuevo,
 cambio de precio, mismo precio (sin fila nueva), descontinuado, reactivado,
 con umbral 20: 21% de fallas (nada cambia, run Failed) y 19% (sí aplica);
-con umbral 50: 40% de fallas sí aplica; oculto que sigue oculto.
+con umbral 50: 40% de fallas sí aplica; oculto que sigue oculto;
+falla del sitemap (run Failed con su error, nada cambia); cancelación del sync.
 Al terminar: build, test, resumen y detente.
 ```
 
 **Revisa**
 
 - [ ] El cálculo del plan de cambios está separado del I/O.
-- [ ] Con más del 20% de errores la base queda intacta.
-- [ ] El `SyncRun` se guarda también cuando falla.
+- [ ] Con más errores que el umbral configurado, la base queda intacta.
+- [ ] El `SyncRun` se guarda también cuando falla, incluido el caso en que falla el sitemap.
+- [ ] Application no menciona `HttpRequestException` ni `TimeoutException`.
+- [ ] Se usa una sola instancia del lector del proveedor durante todo el sync.
 
 ---
 
@@ -314,6 +330,8 @@ En FragranceCatalog.Api:
 - Mapeo de Result a respuestas: éxito -> 200/201/204, errores -> ProblemDetails con el código.
 - OpenAPI + Scalar solo en Development.
 - CORS configurable para el futuro frontend Angular.
+- Cada ejecución del job de sync crea su propio scope de DI, para que cada sync tenga su
+  propia instancia de ISupplierCatalogSource (la pausa entre peticiones no se mezcla entre syncs).
 - Hangfire con Hangfire.PostgreSql: recurring job diario según SyncSettings (hora, zona
   horaria, encendido/apagado), programado al arrancar la API. Implementa ISyncScheduler
   para reprogramarlo o quitarlo cuando cambian los settings, sin reiniciar.
