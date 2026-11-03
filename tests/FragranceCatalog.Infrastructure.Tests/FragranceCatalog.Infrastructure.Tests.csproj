@@ -4,4 +4,8 @@
     <ProjectReference Include="../../src/FragranceCatalog.Infrastructure/FragranceCatalog.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
 </Project>
