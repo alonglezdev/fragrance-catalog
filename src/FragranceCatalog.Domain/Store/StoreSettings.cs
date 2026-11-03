@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
+using FragranceCatalog.Domain.Common;
 
 namespace FragranceCatalog.Domain.Store;
 
@@ -98,52 +100,65 @@ public sealed partial class StoreSettings
     /// <param name="whatsAppMessageTemplate">Message, 1 to <see cref="MaxMessageTemplateLength"/> characters, using only supported placeholders.</param>
     public void Update(string storeName, string whatsAppNumber, string whatsAppMessageTemplate)
     {
-        var trimmedStoreName = ValidateStoreName(storeName);
-        var normalizedNumber = ValidateWhatsAppNumber(whatsAppNumber);
-        ValidateMessageTemplate(whatsAppMessageTemplate);
+        Guard.ThrowIfInvalid(Validate(storeName, whatsAppNumber, whatsAppMessageTemplate));
 
-        StoreName = trimmedStoreName;
-        WhatsAppNumber = normalizedNumber;
+        StoreName = storeName.Trim();
+        WhatsAppNumber = NormalizeWhatsAppNumber(whatsAppNumber);
         WhatsAppMessageTemplate = whatsAppMessageTemplate;
     }
 
-    private static string ValidateStoreName(string storeName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storeName);
+    /// <summary>Lists every problem of the proposed settings; an empty list means <see cref="Update"/> will accept them.</summary>
+    /// <param name="storeName">Store name.</param>
+    /// <param name="whatsAppNumber">Number as typed; it is normalized before it is checked, and empty is allowed.</param>
+    /// <param name="whatsAppMessageTemplate">Message with placeholders.</param>
+    public static IReadOnlyList<StoreSettingsError> Validate(string storeName, string whatsAppNumber, string whatsAppMessageTemplate) =>
+    [
+        .. ValidateStoreName(storeName),
+        .. ValidateWhatsAppNumber(whatsAppNumber),
+        .. ValidateMessageTemplate(whatsAppMessageTemplate),
+    ];
 
-        var trimmed = storeName.Trim();
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(trimmed.Length, MaxStoreNameLength, nameof(storeName));
-        return trimmed;
+    private static IEnumerable<StoreSettingsError> ValidateStoreName(string storeName)
+    {
+        if (string.IsNullOrWhiteSpace(storeName))
+        {
+            return [new StoreSettingsError(StoreSettingsErrorCode.StoreNameRequired, storeName ?? string.Empty)];
+        }
+
+        return storeName.Trim().Length > MaxStoreNameLength
+            ? [new StoreSettingsError(StoreSettingsErrorCode.StoreNameTooLong, storeName)]
+            : [];
     }
 
-    private static string ValidateWhatsAppNumber(string whatsAppNumber)
+    private static IEnumerable<StoreSettingsError> ValidateWhatsAppNumber(string whatsAppNumber)
     {
-        var normalized = NormalizeWhatsAppNumber(whatsAppNumber);
+        var normalized = NormalizeWhatsAppNumber(whatsAppNumber ?? string.Empty);
         if (normalized.Length == 0)
         {
-            return normalized;
+            return [];
         }
 
         var hasValidDigits = normalized.All(char.IsAsciiDigit)
             && normalized.Length is >= MinWhatsAppNumberDigits and <= MaxWhatsAppNumberDigits;
-        if (!hasValidDigits)
-        {
-            throw new ArgumentException($"'{whatsAppNumber}' must have {MinWhatsAppNumberDigits} to {MaxWhatsAppNumberDigits} digits including the country code.", nameof(whatsAppNumber));
-        }
-
-        return normalized;
+        return hasValidDigits ? [] : [new StoreSettingsError(StoreSettingsErrorCode.InvalidWhatsAppNumber, whatsAppNumber!)];
     }
 
-    private static void ValidateMessageTemplate(string whatsAppMessageTemplate)
+    private static IEnumerable<StoreSettingsError> ValidateMessageTemplate(string whatsAppMessageTemplate)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(whatsAppMessageTemplate);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(whatsAppMessageTemplate.Length, MaxMessageTemplateLength, nameof(whatsAppMessageTemplate));
-
-        var unknownPlaceholders = FindUnknownPlaceholders(whatsAppMessageTemplate);
-        if (unknownPlaceholders.Count > 0)
+        if (string.IsNullOrWhiteSpace(whatsAppMessageTemplate))
         {
-            throw new ArgumentException($"Unknown placeholders: {string.Join(", ", unknownPlaceholders)}.", nameof(whatsAppMessageTemplate));
+            return [new StoreSettingsError(StoreSettingsErrorCode.MessageTemplateRequired, whatsAppMessageTemplate ?? string.Empty)];
         }
+
+        var errors = FindUnknownPlaceholders(whatsAppMessageTemplate)
+            .Select(placeholder => new StoreSettingsError(StoreSettingsErrorCode.UnknownPlaceholder, placeholder))
+            .ToList();
+        if (whatsAppMessageTemplate.Length > MaxMessageTemplateLength)
+        {
+            errors.Add(new StoreSettingsError(StoreSettingsErrorCode.MessageTemplateTooLong, whatsAppMessageTemplate.Length.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        return errors;
     }
 
     [GeneratedRegex(@"\{[^{}]*\}")]

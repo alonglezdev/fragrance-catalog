@@ -70,19 +70,19 @@ public sealed class StoreSettingsTests
     }
 
     [Fact]
-    public void Update_TemplateLongerThanLimit_ThrowsArgumentOutOfRangeException()
+    public void Update_TemplateLongerThanLimit_ThrowsArgumentException()
     {
         var settings = StoreSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update("Dolce Aroma", "", new string('a', 501)));
+        Should.Throw<ArgumentException>(() => settings.Update("Dolce Aroma", "", new string('a', 501)));
     }
 
     [Fact]
-    public void Update_StoreNameLongerThanLimit_ThrowsArgumentOutOfRangeException()
+    public void Update_StoreNameLongerThanLimit_ThrowsArgumentException()
     {
         var settings = StoreSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(new string('a', 81), "", ValidTemplate));
+        Should.Throw<ArgumentException>(() => settings.Update(new string('a', 81), "", ValidTemplate));
     }
 
     [Fact]

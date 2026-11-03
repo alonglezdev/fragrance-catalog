@@ -32,15 +32,15 @@ public sealed class PricingRuleTests
     }
 
     [Fact]
-    public void ForProduct_NegativeAmount_ThrowsArgumentOutOfRangeException()
+    public void ForProduct_NegativeAmount_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PricingRule.ForProduct(Guid.NewGuid(), PriceAction.AddAmount, -1m, null, null, _createdAt));
+        Should.Throw<ArgumentException>(() => PricingRule.ForProduct(Guid.NewGuid(), PriceAction.AddAmount, -1m, null, null, _createdAt));
     }
 
     [Fact]
-    public void ForProduct_FixedPriceOfZero_ThrowsArgumentOutOfRangeException()
+    public void ForProduct_FixedPriceOfZero_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PricingRule.ForProduct(Guid.NewGuid(), PriceAction.FixedPrice, 0m, null, null, _createdAt));
+        Should.Throw<ArgumentException>(() => PricingRule.ForProduct(Guid.NewGuid(), PriceAction.FixedPrice, 0m, null, null, _createdAt));
     }
 
     [Fact]
@@ -60,9 +60,9 @@ public sealed class PricingRuleTests
     }
 
     [Fact]
-    public void ForBrand_PercentAboveMarkupMaximum_ThrowsArgumentOutOfRangeException()
+    public void ForBrand_PercentAboveMarkupMaximum_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PricingRule.ForBrand(Guid.NewGuid(), PriceAction.AddPercent, 500.01m, null, null, _createdAt));
+        Should.Throw<ArgumentException>(() => PricingRule.ForBrand(Guid.NewGuid(), PriceAction.AddPercent, 500.01m, null, null, _createdAt));
     }
 
     [Fact]
@@ -78,15 +78,15 @@ public sealed class PricingRuleTests
     {
         var rule = PricingRule.ForProduct(Guid.NewGuid(), PriceAction.AddAmount, 0m, null, null, _createdAt);
 
-        Should.Throw<ArgumentOutOfRangeException>(() => rule.Update(PriceAction.FixedPrice, 0m, null, null));
+        Should.Throw<ArgumentException>(() => rule.Update(PriceAction.FixedPrice, 0m, null, null));
 
         rule.Action.ShouldBe(PriceAction.AddAmount);
     }
 
     [Fact]
-    public void ForBrand_EndsBeforeItStarts_ThrowsArgumentOutOfRangeException()
+    public void ForBrand_EndsBeforeItStarts_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PricingRule.ForBrand(Guid.NewGuid(), PriceAction.AddPercent, 8m, _endsAt, _startsAt, _createdAt));
+        Should.Throw<ArgumentException>(() => PricingRule.ForBrand(Guid.NewGuid(), PriceAction.AddPercent, 8m, _endsAt, _startsAt, _createdAt));
     }
 
     [Fact]
