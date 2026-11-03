@@ -112,6 +112,18 @@ En Application define solo las interfaces que Infrastructure necesita implementa
 En FragranceCatalog.Infrastructure.Tests, pruebas de integración con Testcontainers.PostgreSql:
 aplicar migraciones, guardar y leer un producto con imágenes y precios, y confirmar que el
 índice único (SupplierId, SupplierProductId) rechaza duplicados.
+
+Notas del dominio de la Fase 1:
+- Product guarda imágenes y precios en campos privados (_images, _supplierPrices); mapéalos
+  con backing fields.
+- Slug es un value object: usa un value converter a string.
+- Las propiedades calculadas (CurrentSupplierPrice, SupplierPrice.Cost, PriceRange.IsOpenEnded,
+  StoreSettings.HasWhatsAppNumber) no son columnas.
+- CurrentSupplierPrice necesita los precios cargados; agrega una prueba de integración que lea un
+  producto con sus precios y verifique el costo.
+
+Antes de empezar, confirma que Docker esté corriendo y que dotnet-ef esté instalado
+(dotnet tool install --global dotnet-ef); si falta algo, avísame en lugar de continuar.
 Al terminar: build, test, resumen y detente.
 ```
 
@@ -120,6 +132,8 @@ Al terminar: build, test, resumen y detente.
 - [ ] El dominio sigue sin saber nada de EF Core.
 - [ ] La migración generada se lee bien (nombres de tablas e índices).
 - [ ] Las pruebas de integración levantan y tiran su propio contenedor.
+- [ ] Ninguna propiedad calculada terminó como columna en la migración.
+- [ ] Slug se guarda como texto simple y tiene índice único.
 
 ---
 
