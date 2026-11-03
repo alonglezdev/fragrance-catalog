@@ -81,11 +81,11 @@ public sealed class SyncSettingsTests
     [InlineData(20, 10001, 30)]
     [InlineData(20, 1000, 4)]
     [InlineData(20, 1000, 121)]
-    public void Update_OperationalValueOutOfRange_ThrowsArgumentOutOfRangeException(int failureThresholdPercent, int delayBetweenRequestsMs, int requestTimeoutSeconds)
+    public void Update_OperationalValueOutOfRange_ThrowsArgumentException(int failureThresholdPercent, int delayBetweenRequestsMs, int requestTimeoutSeconds)
     {
         var settings = SyncSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(true, new TimeOnly(4, 0), "America/Mexico_City", failureThresholdPercent, delayBetweenRequestsMs, requestTimeoutSeconds));
+        Should.Throw<ArgumentException>(() => settings.Update(true, new TimeOnly(4, 0), "America/Mexico_City", failureThresholdPercent, delayBetweenRequestsMs, requestTimeoutSeconds));
     }
 
     [Fact]

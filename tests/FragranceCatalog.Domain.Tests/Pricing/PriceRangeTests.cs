@@ -35,23 +35,23 @@ public sealed class PriceRangeTests
     }
 
     [Fact]
-    public void Create_MaxCostNotAboveMinCost_ThrowsArgumentOutOfRangeException()
+    public void Create_MaxCostNotAboveMinCost_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PriceRange.Create(1000m, 1000m, PriceAction.AddAmount, 300m));
+        Should.Throw<ArgumentException>(() => PriceRange.Create(1000m, 1000m, PriceAction.AddAmount, 300m));
     }
 
     [Fact]
-    public void Create_NegativeMinCost_ThrowsArgumentOutOfRangeException()
+    public void Create_NegativeMinCost_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PriceRange.Create(-1m, 1000m, PriceAction.AddAmount, 300m));
+        Should.Throw<ArgumentException>(() => PriceRange.Create(-1m, 1000m, PriceAction.AddAmount, 300m));
     }
 
     [Theory]
     [InlineData(PriceAction.AddAmount)]
     [InlineData(PriceAction.AddPercent)]
-    public void Create_NegativeValue_ThrowsArgumentOutOfRangeException(PriceAction action)
+    public void Create_NegativeValue_ThrowsArgumentException(PriceAction action)
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PriceRange.Create(0m, 1000m, action, -1m));
+        Should.Throw<ArgumentException>(() => PriceRange.Create(0m, 1000m, action, -1m));
     }
 
     [Fact]
@@ -63,9 +63,9 @@ public sealed class PriceRangeTests
     }
 
     [Fact]
-    public void Create_PercentAboveMarkupMaximum_ThrowsArgumentOutOfRangeException()
+    public void Create_PercentAboveMarkupMaximum_ThrowsArgumentException()
     {
-        Should.Throw<ArgumentOutOfRangeException>(() => PriceRange.Create(0m, null, PriceAction.AddPercent, 500.01m));
+        Should.Throw<ArgumentException>(() => PriceRange.Create(0m, null, PriceAction.AddPercent, 500.01m));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using FragranceCatalog.Domain.Common;
 
 namespace FragranceCatalog.Domain.Pricing;
@@ -51,6 +52,43 @@ public sealed class PricingSettings
         return settings;
     }
 
+    /// <summary>Lists every problem of the proposed settings; an empty list means <see cref="Update"/> will accept them.</summary>
+    /// <param name="activeBaseStrategy">Strategy used when no rule applies.</param>
+    /// <param name="basePercent">Global markup percentage.</param>
+    /// <param name="roundingMode">Rounding applied to calculated prices.</param>
+    /// <param name="minProfit">Low profit threshold in MXN.</param>
+    /// <param name="costChangeAlertPercent">Cost alert threshold.</param>
+    public static IReadOnlyList<PricingSettingsError> Validate(BaseStrategy activeBaseStrategy, decimal basePercent, RoundingMode roundingMode, decimal minProfit, int costChangeAlertPercent)
+    {
+        var errors = new List<PricingSettingsError>();
+        if (!Enum.IsDefined(activeBaseStrategy))
+        {
+            errors.Add(new PricingSettingsError(PricingSettingsErrorCode.UnknownBaseStrategy, activeBaseStrategy.ToString()));
+        }
+
+        if (basePercent is < MarkupPercent.Minimum or > MarkupPercent.Maximum)
+        {
+            errors.Add(new PricingSettingsError(PricingSettingsErrorCode.BasePercentOutOfRange, basePercent.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (!Enum.IsDefined(roundingMode))
+        {
+            errors.Add(new PricingSettingsError(PricingSettingsErrorCode.UnknownRoundingMode, roundingMode.ToString()));
+        }
+
+        if (minProfit < 0m)
+        {
+            errors.Add(new PricingSettingsError(PricingSettingsErrorCode.NegativeMinProfit, minProfit.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (costChangeAlertPercent is < MinCostChangeAlertPercent or > MaxCostChangeAlertPercent)
+        {
+            errors.Add(new PricingSettingsError(PricingSettingsErrorCode.CostChangeAlertPercentOutOfRange, costChangeAlertPercent.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        return errors;
+    }
+
     /// <summary>Replaces every pricing setting at once, rejecting values outside the allowed ranges.</summary>
     /// <param name="activeBaseStrategy">Strategy used when no rule applies.</param>
     /// <param name="basePercent">Global markup percentage, between <see cref="MarkupPercent.Minimum"/> and <see cref="MarkupPercent.Maximum"/>.</param>
@@ -59,11 +97,7 @@ public sealed class PricingSettings
     /// <param name="costChangeAlertPercent">Cost alert threshold, between <see cref="MinCostChangeAlertPercent"/> and <see cref="MaxCostChangeAlertPercent"/>.</param>
     public void Update(BaseStrategy activeBaseStrategy, decimal basePercent, RoundingMode roundingMode, decimal minProfit, int costChangeAlertPercent)
     {
-        Guard.ThrowIfUndefined(activeBaseStrategy);
-        Guard.ThrowIfOutOfRange(basePercent, MarkupPercent.Minimum, MarkupPercent.Maximum);
-        Guard.ThrowIfUndefined(roundingMode);
-        ArgumentOutOfRangeException.ThrowIfNegative(minProfit);
-        Guard.ThrowIfOutOfRange(costChangeAlertPercent, MinCostChangeAlertPercent, MaxCostChangeAlertPercent);
+        Guard.ThrowIfInvalid(Validate(activeBaseStrategy, basePercent, roundingMode, minProfit, costChangeAlertPercent));
 
         ActiveBaseStrategy = activeBaseStrategy;
         BasePercent = basePercent;

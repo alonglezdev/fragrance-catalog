@@ -34,29 +34,29 @@ public sealed class PricingSettingsTests
     [Theory]
     [InlineData(-0.01)]
     [InlineData(500.01)]
-    public void Update_BasePercentOutOfRange_ThrowsArgumentOutOfRangeException(double basePercent)
+    public void Update_BasePercentOutOfRange_ThrowsArgumentException(double basePercent)
     {
         var settings = PricingSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(BaseStrategy.Percent, (decimal)basePercent, RoundingMode.None, 100m, 15));
+        Should.Throw<ArgumentException>(() => settings.Update(BaseStrategy.Percent, (decimal)basePercent, RoundingMode.None, 100m, 15));
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(101)]
-    public void Update_CostChangeAlertPercentOutOfRange_ThrowsArgumentOutOfRangeException(int costChangeAlertPercent)
+    public void Update_CostChangeAlertPercentOutOfRange_ThrowsArgumentException(int costChangeAlertPercent)
     {
         var settings = PricingSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(BaseStrategy.Ranges, 10m, RoundingMode.None, 100m, costChangeAlertPercent));
+        Should.Throw<ArgumentException>(() => settings.Update(BaseStrategy.Ranges, 10m, RoundingMode.None, 100m, costChangeAlertPercent));
     }
 
     [Fact]
-    public void Update_NegativeMinProfit_ThrowsArgumentOutOfRangeException()
+    public void Update_NegativeMinProfit_ThrowsArgumentException()
     {
         var settings = PricingSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(BaseStrategy.Ranges, 10m, RoundingMode.None, -1m, 15));
+        Should.Throw<ArgumentException>(() => settings.Update(BaseStrategy.Ranges, 10m, RoundingMode.None, -1m, 15));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class PricingSettingsTests
     {
         var settings = PricingSettings.CreateDefault();
 
-        Should.Throw<ArgumentOutOfRangeException>(() => settings.Update(BaseStrategy.Percent, 999m, RoundingMode.EndsInNine, 100m, 15));
+        Should.Throw<ArgumentException>(() => settings.Update(BaseStrategy.Percent, 999m, RoundingMode.EndsInNine, 100m, 15));
 
         settings.ActiveBaseStrategy.ShouldBe(BaseStrategy.Ranges);
         settings.RoundingMode.ShouldBe(RoundingMode.None);

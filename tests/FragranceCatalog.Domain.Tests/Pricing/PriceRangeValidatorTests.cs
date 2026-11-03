@@ -39,7 +39,7 @@ public sealed class PriceRangeValidatorTests
 
         var errors = PriceRangeValidator.Validate(ranges);
 
-        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.DoesNotStartAtZero, 100m)]);
+        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.RangesDoNotStartAtZero, 100m)]);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class PriceRangeValidatorTests
 
         var errors = PriceRangeValidator.Validate(ranges);
 
-        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.Gap, 1000m)]);
+        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.RangesHaveGap, 1000m)]);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class PriceRangeValidatorTests
 
         var errors = PriceRangeValidator.Validate(ranges);
 
-        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.Overlap, 900m)]);
+        errors.ShouldBe([new PriceRangeError(PriceRangeErrorCode.RangesOverlap, 900m)]);
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public sealed class PriceRangeValidatorTests
 
         errors.Select(error => error.Code).ShouldBe(
         [
-            PriceRangeErrorCode.DoesNotStartAtZero,
-            PriceRangeErrorCode.Gap,
+            PriceRangeErrorCode.RangesDoNotStartAtZero,
+            PriceRangeErrorCode.RangesHaveGap,
             PriceRangeErrorCode.LastRangeNotOpen,
         ]);
     }

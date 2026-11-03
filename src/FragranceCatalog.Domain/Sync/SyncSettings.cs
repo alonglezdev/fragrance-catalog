@@ -1,3 +1,4 @@
+using System.Globalization;
 using FragranceCatalog.Domain.Common;
 
 namespace FragranceCatalog.Domain.Sync;
@@ -100,6 +101,36 @@ public sealed class SyncSettings
     public bool IsFailureThresholdExceeded(int failedCount, int totalCount) =>
         failedCount * WholePercent > FailureThresholdPercent * totalCount;
 
+    /// <summary>Lists every problem of the proposed settings; an empty list means <see cref="Update"/> will accept them.</summary>
+    /// <param name="dailySyncTime">Local time of the daily sync.</param>
+    /// <param name="timeZoneId">IANA time zone of the daily sync time.</param>
+    /// <param name="failureThresholdPercent">Failure percentage that cancels a sync.</param>
+    /// <param name="delayBetweenRequestsMs">Pause between supplier requests in milliseconds.</param>
+    /// <param name="requestTimeoutSeconds">Timeout per supplier page in seconds.</param>
+    public static IReadOnlyList<SyncSettingsError> Validate(
+        TimeOnly dailySyncTime,
+        string timeZoneId,
+        int failureThresholdPercent,
+        int delayBetweenRequestsMs,
+        int requestTimeoutSeconds)
+    {
+        var errors = new List<SyncSettingsError>();
+        if (dailySyncTime.Ticks % TimeSpan.TicksPerMinute != 0)
+        {
+            errors.Add(new SyncSettingsError(SyncSettingsErrorCode.DailySyncTimeNotWholeMinute, dailySyncTime.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        if (!IsKnownIanaTimeZone(timeZoneId))
+        {
+            errors.Add(new SyncSettingsError(SyncSettingsErrorCode.UnknownTimeZone, timeZoneId ?? string.Empty));
+        }
+
+        AddIfOutOfRange(errors, SyncSettingsErrorCode.FailureThresholdPercentOutOfRange, failureThresholdPercent, MinFailureThresholdPercent, MaxFailureThresholdPercent);
+        AddIfOutOfRange(errors, SyncSettingsErrorCode.DelayBetweenRequestsOutOfRange, delayBetweenRequestsMs, MinDelayBetweenRequestsMs, MaxDelayBetweenRequestsMs);
+        AddIfOutOfRange(errors, SyncSettingsErrorCode.RequestTimeoutOutOfRange, requestTimeoutSeconds, MinRequestTimeoutSeconds, MaxRequestTimeoutSeconds);
+        return errors;
+    }
+
     /// <summary>Replaces every sync setting at once, rejecting values outside the allowed ranges.</summary>
     /// <param name="isDailySyncEnabled">Whether the daily sync is scheduled.</param>
     /// <param name="dailySyncTime">Local time of the daily sync, in whole minutes.</param>
@@ -115,19 +146,7 @@ public sealed class SyncSettings
         int delayBetweenRequestsMs,
         int requestTimeoutSeconds)
     {
-        if (dailySyncTime.Ticks % TimeSpan.TicksPerMinute != 0)
-        {
-            throw new ArgumentException("The daily sync time must be a whole minute.", nameof(dailySyncTime));
-        }
-
-        if (!IsKnownIanaTimeZone(timeZoneId))
-        {
-            throw new ArgumentException($"'{timeZoneId}' is not a known IANA time zone.", nameof(timeZoneId));
-        }
-
-        Guard.ThrowIfOutOfRange(failureThresholdPercent, MinFailureThresholdPercent, MaxFailureThresholdPercent);
-        Guard.ThrowIfOutOfRange(delayBetweenRequestsMs, MinDelayBetweenRequestsMs, MaxDelayBetweenRequestsMs);
-        Guard.ThrowIfOutOfRange(requestTimeoutSeconds, MinRequestTimeoutSeconds, MaxRequestTimeoutSeconds);
+        Guard.ThrowIfInvalid(Validate(dailySyncTime, timeZoneId, failureThresholdPercent, delayBetweenRequestsMs, requestTimeoutSeconds));
 
         IsDailySyncEnabled = isDailySyncEnabled;
         DailySyncTime = dailySyncTime;
@@ -135,5 +154,13 @@ public sealed class SyncSettings
         FailureThresholdPercent = failureThresholdPercent;
         DelayBetweenRequestsMs = delayBetweenRequestsMs;
         RequestTimeoutSeconds = requestTimeoutSeconds;
+    }
+
+    private static void AddIfOutOfRange(List<SyncSettingsError> errors, SyncSettingsErrorCode code, int value, int minimum, int maximum)
+    {
+        if (value < minimum || value > maximum)
+        {
+            errors.Add(new SyncSettingsError(code, value.ToString(CultureInfo.InvariantCulture)));
+        }
     }
 }

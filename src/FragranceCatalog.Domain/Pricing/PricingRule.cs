@@ -1,3 +1,4 @@
+using System.Globalization;
 using FragranceCatalog.Domain.Common;
 
 namespace FragranceCatalog.Domain.Pricing;
@@ -41,6 +42,9 @@ public sealed class PricingRule
     /// <summary>UTC instant the rule stops applying, exclusive; null means it never expires.</summary>
     public DateTimeOffset? EndsAt { get; private set; }
 
+    /// <summary>The brand or product the rule targets, whichever <see cref="Scope"/> says.</summary>
+    public Guid TargetId => BrandId ?? ProductId ?? Guid.Empty;
+
     /// <summary>Whether the administrator has the rule switched on.</summary>
     public bool IsActive { get; private set; }
 
@@ -56,9 +60,7 @@ public sealed class PricingRule
     /// <param name="createdAt">Creation instant.</param>
     public static PricingRule ForBrand(Guid brandId, PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt, DateTimeOffset createdAt)
     {
-        Guard.ThrowIfEmpty(brandId);
-
-        return Create(PricingRuleScope.Brand, brandId, null, action, value, startsAt, endsAt, createdAt);
+        return ForTarget(PricingRuleScope.Brand, brandId, action, value, startsAt, endsAt, createdAt);
     }
 
     /// <summary>Creates an active rule for a single product.</summary>
@@ -70,9 +72,72 @@ public sealed class PricingRule
     /// <param name="createdAt">Creation instant.</param>
     public static PricingRule ForProduct(Guid productId, PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt, DateTimeOffset createdAt)
     {
-        Guard.ThrowIfEmpty(productId);
+        return ForTarget(PricingRuleScope.Product, productId, action, value, startsAt, endsAt, createdAt);
+    }
 
-        return Create(PricingRuleScope.Product, null, productId, action, value, startsAt, endsAt, createdAt);
+    /// <summary>Creates an active rule for the brand or product the scope says.</summary>
+    /// <param name="scope">Whether the target is a brand or a product.</param>
+    /// <param name="targetId">Targeted brand or product.</param>
+    /// <param name="action">How the cost becomes a price.</param>
+    /// <param name="value">Amount, zero or more; percentage within <see cref="MarkupPercent"/>; or fixed price above zero.</param>
+    /// <param name="startsAt">Optional start, inclusive.</param>
+    /// <param name="endsAt">Optional end, exclusive; must be after the start.</param>
+    /// <param name="createdAt">Creation instant.</param>
+    public static PricingRule ForTarget(PricingRuleScope scope, Guid targetId, PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt, DateTimeOffset createdAt)
+    {
+        Guard.ThrowIfInvalid(Validate(scope, targetId, action, value, startsAt, endsAt));
+
+        var brandId = scope == PricingRuleScope.Brand ? targetId : (Guid?)null;
+        var productId = scope == PricingRuleScope.Product ? targetId : (Guid?)null;
+        var rule = new PricingRule(Guid.CreateVersion7(), scope, brandId, productId, createdAt.ToUniversalTime());
+        rule.Update(action, value, startsAt, endsAt);
+        rule.Activate();
+        return rule;
+    }
+
+    /// <summary>Lists every problem of a new rule, including what it targets; an empty list means it can be created.</summary>
+    /// <param name="scope">Whether the target is a brand or a product.</param>
+    /// <param name="targetId">Targeted brand or product.</param>
+    /// <param name="action">How the cost becomes a price.</param>
+    /// <param name="value">Amount, percentage or fixed price.</param>
+    /// <param name="startsAt">Optional start.</param>
+    /// <param name="endsAt">Optional end.</param>
+    public static IReadOnlyList<PricingRuleError> Validate(PricingRuleScope scope, Guid targetId, PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt)
+    {
+        var errors = new List<PricingRuleError>();
+        if (!Enum.IsDefined(scope))
+        {
+            errors.Add(new PricingRuleError(PricingRuleErrorCode.UnknownRuleScope, scope.ToString()));
+        }
+
+        if (targetId == Guid.Empty)
+        {
+            errors.Add(new PricingRuleError(PricingRuleErrorCode.RuleTargetRequired, targetId.ToString()));
+        }
+
+        errors.AddRange(Validate(action, value, startsAt, endsAt));
+        return errors;
+    }
+
+    /// <summary>Lists every problem of what a rule does and when it applies; an empty list means <see cref="Update"/> will accept it.</summary>
+    /// <param name="action">How the cost becomes a price.</param>
+    /// <param name="value">Amount, percentage or fixed price.</param>
+    /// <param name="startsAt">Optional start.</param>
+    /// <param name="endsAt">Optional end.</param>
+    public static IReadOnlyList<PricingRuleError> Validate(PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt)
+    {
+        var errors = new List<PricingRuleError>();
+        if (FindActionErrorCode(action, value) is { } actionErrorCode)
+        {
+            errors.Add(new PricingRuleError(actionErrorCode, value.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (endsAt <= startsAt)
+        {
+            errors.Add(new PricingRuleError(PricingRuleErrorCode.EndsNotAfterStart, endsAt.Value.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        return errors;
     }
 
     /// <summary>Changes what the rule does and when it applies; the target cannot change.</summary>
@@ -82,11 +147,7 @@ public sealed class PricingRule
     /// <param name="endsAt">Optional end, exclusive; must be after the start.</param>
     public void Update(PriceAction action, decimal value, DateTimeOffset? startsAt, DateTimeOffset? endsAt)
     {
-        PriceActionValue.ThrowIfInvalid(action, value);
-        if (startsAt is { } start && endsAt is { } end)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(end, start, nameof(endsAt));
-        }
+        Guard.ThrowIfInvalid(Validate(action, value, startsAt, endsAt));
 
         Action = action;
         Value = value;
@@ -113,19 +174,13 @@ public sealed class PricingRule
     /// <param name="brandId">Brand of the product being priced.</param>
     public bool TargetsBrand(Guid brandId) => Scope == PricingRuleScope.Brand && BrandId == brandId;
 
-    private static PricingRule Create(
-        PricingRuleScope scope,
-        Guid? brandId,
-        Guid? productId,
-        PriceAction action,
-        decimal value,
-        DateTimeOffset? startsAt,
-        DateTimeOffset? endsAt,
-        DateTimeOffset createdAt)
-    {
-        var rule = new PricingRule(Guid.CreateVersion7(), scope, brandId, productId, createdAt.ToUniversalTime());
-        rule.Update(action, value, startsAt, endsAt);
-        rule.Activate();
-        return rule;
-    }
+    private static PricingRuleErrorCode? FindActionErrorCode(PriceAction action, decimal value) =>
+        PriceActionValue.FindProblem(action, value) switch
+        {
+            PriceActionValueProblem.UnknownAction => PricingRuleErrorCode.UnknownPriceAction,
+            PriceActionValueProblem.NegativeAmount => PricingRuleErrorCode.NegativeAmount,
+            PriceActionValueProblem.PercentOutOfRange => PricingRuleErrorCode.PercentOutOfRange,
+            PriceActionValueProblem.FixedPriceNotAboveZero => PricingRuleErrorCode.FixedPriceNotAboveZero,
+            _ => null,
+        };
 }

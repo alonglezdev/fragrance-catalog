@@ -13,6 +13,14 @@ internal static class Guard
         }
     }
 
+    public static void ThrowIfInvalid<TError>(IReadOnlyCollection<TError> errors, [CallerMemberName] string? operation = null)
+    {
+        if (errors.Count > 0)
+        {
+            throw new ArgumentException($"{operation} received invalid values: {string.Join("; ", errors)}");
+        }
+    }
+
     public static void ThrowIfEmpty(Guid value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         if (value == Guid.Empty)
@@ -27,12 +35,5 @@ internal static class Guard
         {
             throw new ArgumentException($"'{value}' is not an absolute URL.", paramName);
         }
-    }
-
-    public static void ThrowIfOutOfRange<T>(T value, T minimum, T maximum, [CallerArgumentExpression(nameof(value))] string? paramName = null)
-        where T : IComparable<T>
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(value, minimum, paramName);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, maximum, paramName);
     }
 }
