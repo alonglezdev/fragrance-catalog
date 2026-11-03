@@ -1,7 +1,7 @@
 namespace FragranceCatalog.Application.Sync;
 
 /// <summary>
-/// A supplier page was downloaded but its content is not what the reader expects, for example a missing price
+/// A supplier page could not be downloaded, or its content is not what the reader expects, for example a missing price
 /// or prices that contradict each other. The sync records it as an error for that URL and continues.
 /// </summary>
 public sealed class SupplierCatalogException : Exception

@@ -81,6 +81,25 @@ public sealed class Product
         _supplierPrices.MaxBy(price => price.CapturedAt)
         ?? throw new InvalidOperationException($"Product {Id} was loaded without its supplier prices.");
 
+    /// <summary>
+    /// Checks supplier data before it is used, so the sync can set aside a product the domain would reject instead of failing while saving it.
+    /// </summary>
+    /// <param name="details">Supplier-owned product data.</param>
+    /// <param name="regularPrice">Supplier list price.</param>
+    /// <param name="salePrice">Supplier offer price, or null when there is no offer.</param>
+    /// <param name="imageUrls">Photo URLs.</param>
+    /// <exception cref="ArgumentException">Some of the data is not acceptable; the message says which.</exception>
+    public static void ValidateSupplierData(SupplierProductDetails details, decimal regularPrice, decimal? salePrice, IEnumerable<string> imageUrls)
+    {
+        ValidateDetails(details);
+        SupplierPrice.ValidateAmounts(regularPrice, salePrice);
+        ArgumentNullException.ThrowIfNull(imageUrls);
+        foreach (var url in imageUrls)
+        {
+            Guard.ThrowIfNotAbsoluteUrl(url, nameof(imageUrls));
+        }
+    }
+
     /// <summary>Imports a product found for the first time in the supplier catalog, together with its first price, so a product never exists without a cost.</summary>
     /// <param name="supplierId">Supplier the product comes from.</param>
     /// <param name="supplierProductId">The supplier's own identifier for the product.</param>
@@ -121,7 +140,7 @@ public sealed class Product
         ApplyDetails(details, seenAt);
     }
 
-    /// <summary>Replaces the photos with the supplier's current list, dropping duplicates and keeping the supplier's order.</summary>
+    /// <summary>Replaces the photos with the supplier's current list, dropping duplicates and keeping the supplier's order. An unchanged list keeps the existing rows, so a daily sync does not rewrite them.</summary>
     /// <param name="imageUrls">Absolute photo URLs, main photo first.</param>
     public void ReplaceImages(IEnumerable<string> imageUrls)
     {
@@ -131,6 +150,11 @@ public sealed class Product
         foreach (var url in uniqueUrls)
         {
             Guard.ThrowIfNotAbsoluteUrl(url, nameof(imageUrls));
+        }
+
+        if (_images.Select(image => image.Url).SequenceEqual(uniqueUrls, StringComparer.Ordinal))
+        {
+            return;
         }
 
         _images.Clear();

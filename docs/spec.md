@@ -54,14 +54,20 @@ Selectores CSS, marcador del payload de Catalyst, nombre del campo de género y 
 - Pasos:
   1. Leer todas las URLs de productos del sitemap.
   2. Leer y parsear cada producto. Si uno falla, registrar el error y continuar.
-  3. Si el porcentaje de productos que fallan es **mayor** a `SyncSettings.FailureThresholdPercent` (default 20), el sync se marca `Failed` y **no se aplica ningún cambio** a la base de datos.
-  4. Si no, aplicar en una transacción:
+  3. Comparar con el catálogo. Si el dominio rechaza un producto o su marca (por ejemplo, un nombre que no produce slug), ese producto queda fuera de los cambios y se registra como error de su URL. Los demás continúan.
+  4. Si el porcentaje de productos que fallan (páginas que no se pudieron leer más productos rechazados) es **mayor** a `SyncSettings.FailureThresholdPercent` (default 20), el sync se marca `Failed` y **no se aplica ningún cambio** a la base de datos.
+  5. Si no, aplicar en una transacción:
      - Producto nuevo -> crearlo (marca nueva -> crearla).
      - Producto existente -> actualizar datos; si cambió el precio, agregar fila a `SupplierPrice`.
      - Producto que ya no está en el sitemap -> `IsDiscontinued = true` (nunca se borra).
      - Producto descontinuado que vuelve a aparecer -> `IsDiscontinued = false`.
-  5. `IsHidden` e `IsFeatured` los controla la administradora; el sync **nunca** los modifica.
+  6. `IsHidden` e `IsFeatured` los controla la administradora; el sync **nunca** los modifica.
 - Cada ejecución guarda un `SyncRun` con: inicio, fin, disparador (Scheduled / Manual), estado (Running / Succeeded / Failed), conteos (creados, con cambio de precio, descontinuados, reactivados, errores) y log de errores por URL.
+- Ciclo del `SyncRun`:
+  - Se guarda como `Running` al empezar, para que el sync se vea mientras trabaja.
+  - Al terminar se cierra en la misma fila como `Succeeded` o `Failed`; no se crea un run nuevo. Los errores se guardan al cerrar.
+  - Un sync cancelado se cierra como `Failed`, con un error `sync` que lo indica.
+  - Al empezar un sync, los runs que sigan en `Running` (por ejemplo, porque la API se reinició) se cierran como `Failed`, con un error que indica que se interrumpieron.
 
 ## 3. Precio de venta
 

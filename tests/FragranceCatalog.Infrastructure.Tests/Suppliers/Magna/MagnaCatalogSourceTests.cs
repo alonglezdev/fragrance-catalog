@@ -2,6 +2,7 @@ using System.Net;
 using FragranceCatalog.Application.Sync;
 using FragranceCatalog.Infrastructure.Suppliers.Magna;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
 
 namespace FragranceCatalog.Infrastructure.Tests.Suppliers.Magna;
 
@@ -50,22 +51,71 @@ public sealed class MagnaCatalogSourceTests
     }
 
     [Fact]
-    public async Task GetProductAsync_ServerError_ThrowsHttpRequestException()
+    public async Task GetProductAsync_ServerError_WrapsHttpErrorInSupplierCatalogException()
     {
         var handler = new StubHttpHandler().Fail(ProductPageUrl, HttpStatusCode.InternalServerError);
         var source = CreateSource(handler);
 
-        await Should.ThrowAsync<HttpRequestException>(() => source.GetProductAsync(ProductPageUrl, _noDelay, Token));
+        var exception = await Should.ThrowAsync<SupplierCatalogException>(() => source.GetProductAsync(ProductPageUrl, _noDelay, Token));
+
+        exception.InnerException.ShouldBeOfType<HttpRequestException>();
+        exception.Message.ShouldContain(ProductPageUrl);
     }
 
     [Fact]
-    public async Task GetProductAsync_ServerSlowerThanTimeout_ThrowsTimeoutException()
+    public async Task GetProductAsync_ProductRemovedAfterSitemap_WrapsNotFoundInSupplierCatalogException()
+    {
+        var handler = new StubHttpHandler();
+        var source = CreateSource(handler);
+
+        var exception = await Should.ThrowAsync<SupplierCatalogException>(() => source.GetProductAsync(ProductPageUrl, _noDelay, Token));
+
+        exception.InnerException.ShouldBeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task GetProductAsync_CircuitBreakerOpen_WrapsRejectionInSupplierCatalogException()
+    {
+        var handler = new StubHttpHandler().Throw(ProductPageUrl, new BrokenCircuitException());
+        var source = CreateSource(handler);
+
+        var exception = await Should.ThrowAsync<SupplierCatalogException>(() => source.GetProductAsync(ProductPageUrl, _noDelay, Token));
+
+        exception.InnerException.ShouldBeOfType<BrokenCircuitException>();
+    }
+
+    [Fact]
+    public async Task GetProductAsync_SyncCancelled_ThrowsOperationCanceledException()
+    {
+        var handler = new StubHttpHandler().Hang(ProductPageUrl);
+        var source = CreateSource(handler);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Should.ThrowAsync<OperationCanceledException>(() => source.GetProductAsync(ProductPageUrl, _noDelay, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task GetProductUrlsAsync_SitemapUnavailable_WrapsHttpErrorInSupplierCatalogException()
+    {
+        var handler = new StubHttpHandler().Fail(SitemapIndexUrl, HttpStatusCode.ServiceUnavailable);
+        var source = CreateSource(handler);
+
+        var exception = await Should.ThrowAsync<SupplierCatalogException>(() => source.GetProductUrlsAsync(_noDelay, Token));
+
+        exception.Message.ShouldContain(SitemapIndexUrl);
+    }
+
+    [Fact]
+    public async Task GetProductAsync_ServerSlowerThanTimeout_WrapsTimeoutInSupplierCatalogException()
     {
         var handler = new StubHttpHandler().Hang(ProductPageUrl);
         var source = CreateSource(handler);
         var shortTimeout = new SupplierRequestPacing(TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
 
-        await Should.ThrowAsync<TimeoutException>(() => source.GetProductAsync(ProductPageUrl, shortTimeout, Token));
+        var exception = await Should.ThrowAsync<SupplierCatalogException>(() => source.GetProductAsync(ProductPageUrl, shortTimeout, Token));
+
+        exception.InnerException.ShouldBeOfType<TimeoutException>();
+        exception.Message.ShouldContain(ProductPageUrl);
     }
 
     [Fact]

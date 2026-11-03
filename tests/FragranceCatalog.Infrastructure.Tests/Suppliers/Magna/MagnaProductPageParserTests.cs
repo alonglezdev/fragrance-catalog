@@ -137,6 +137,29 @@ public sealed class MagnaProductPageParserTests
     }
 
     [Fact]
+    public void Parse_PriceOfZero_ThrowsSupplierCatalogException()
+    {
+        var html = MagnaFixtures.Read(MagnaFixtures.ArabicBrandPage)
+            .Replace("\"@type\":\"PriceSpecification\",\"price\":725", "\"@type\":\"PriceSpecification\",\"price\":0", StringComparison.Ordinal)
+            .Replace("self.__next_f.push(", "self.__disabled_push(", StringComparison.Ordinal);
+
+        var exception = Should.Throw<SupplierCatalogException>(() => _parser.Parse(html, ArabicBrandUrl));
+
+        exception.Message.ShouldContain(ArabicBrandUrl);
+    }
+
+    [Fact]
+    public void Parse_PriceThatIsNotANumber_ThrowsSupplierCatalogException()
+    {
+        var html = MagnaFixtures.Read(MagnaFixtures.ArabicBrandPage)
+            .Replace("\"@type\":\"PriceSpecification\",\"price\":725", "\"@type\":\"PriceSpecification\",\"price\":\"Consultar\"", StringComparison.Ordinal);
+
+        var exception = Should.Throw<SupplierCatalogException>(() => _parser.Parse(html, ArabicBrandUrl));
+
+        exception.InnerException.ShouldBeOfType<FormatException>();
+    }
+
+    [Fact]
     public void Parse_WithoutCatalystData_UsesSchemaPriceAsRegularAndIdFromImageUrl()
     {
         var html = MagnaFixtures.Read(MagnaFixtures.ArabicBrandPage)

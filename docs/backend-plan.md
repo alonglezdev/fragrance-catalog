@@ -345,6 +345,14 @@ En FragranceCatalog.Api:
 - Mapeo de Result a respuestas: éxito -> 200/201/204, errores -> ProblemDetails con el código.
 - OpenAPI + Scalar solo en Development.
 - CORS configurable para el futuro frontend Angular.
+- SyncSupplierCatalog asume que nunca corren dos syncs a la vez (al empezar, cierra como
+  interrumpido cualquier run en Running). Para garantizarlo:
+  - El job de sync lleva DisableConcurrentExecution con un timeout corto y
+    AutomaticRetry(Attempts = 0). Sin esto, Hangfire reintenta hasta 10 veces un sync que
+    falló, y cada reintento es un sync completo contra Magna.
+  - POST /api/admin/sync responde 409 Conflict con ProblemDetails si ya hay un run en Running,
+    en vez de encolar otro sync que correría justo después.
+  - Prueba: con un run en Running, el endpoint devuelve 409 y no encola nada.
 - Cada ejecución del job de sync crea su propio scope de DI, para que cada sync tenga su
   propia instancia de ISupplierCatalogSource (la pausa entre peticiones no se mezcla entre syncs).
 - Hangfire con Hangfire.PostgreSql: recurring job diario según SyncSettings (hora, zona
@@ -365,6 +373,8 @@ Al terminar: build, test, resumen y detente.
 **Revisa**
 
 - [ ] `Program.cs` se lee en menos de un minuto.
+- [ ] El job de sync no se reintenta solo y no puede correr dos veces a la vez.
+- [ ] Apretar "Actualizar ahora" con un sync en curso no encola otro.
 - [ ] Ningún endpoint devuelve entidades.
 - [ ] Las credenciales de los admins no están en el repo.
 

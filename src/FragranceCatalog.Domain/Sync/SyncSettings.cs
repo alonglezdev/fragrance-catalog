@@ -44,6 +44,8 @@ public sealed class SyncSettings
     /// <summary>Time of day the daily sync runs, until the administrator changes it.</summary>
     public static readonly TimeOnly DefaultDailySyncTime = new(4, 0);
 
+    private const int WholePercent = 100;
+
     private SyncSettings(int id, string timeZoneId)
     {
         Id = id;
@@ -91,6 +93,12 @@ public sealed class SyncSettings
         !string.IsNullOrWhiteSpace(timeZoneId)
         && TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var timeZone)
         && timeZone.HasIanaId;
+
+    /// <summary>Whether so many products failed that the sync must be cancelled; failing exactly the threshold is still allowed.</summary>
+    /// <param name="failedCount">Products that could not be read.</param>
+    /// <param name="totalCount">Products the supplier lists.</param>
+    public bool IsFailureThresholdExceeded(int failedCount, int totalCount) =>
+        failedCount * WholePercent > FailureThresholdPercent * totalCount;
 
     /// <summary>Replaces every sync setting at once, rejecting values outside the allowed ranges.</summary>
     /// <param name="isDailySyncEnabled">Whether the daily sync is scheduled.</param>

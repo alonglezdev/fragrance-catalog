@@ -1,5 +1,6 @@
 using FragranceCatalog.Application.Sync;
 using Microsoft.Extensions.Options;
+using Polly;
 
 namespace FragranceCatalog.Infrastructure.Suppliers.Magna;
 
@@ -49,6 +50,18 @@ public sealed class MagnaCatalogSource(
     }
 
     private async Task<string> DownloadAsync(string url, SupplierRequestPacing pacing, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await SendAsync(url, pacing, cancellationToken);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TimeoutException or ExecutionRejectedException)
+        {
+            throw new SupplierCatalogException($"Could not download {url}: {exception.Message}", exception);
+        }
+    }
+
+    private async Task<string> SendAsync(string url, SupplierRequestPacing pacing, CancellationToken cancellationToken)
     {
         await WaitForTurnAsync(pacing.DelayBetweenRequests, cancellationToken);
 
