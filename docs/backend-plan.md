@@ -225,8 +225,19 @@ Reglas:
 - PreviewPricingChange no guarda nada: calcula precios actuales y propuestos con el mismo
   PriceCalculator.
 - DTOs de admin en su feature; no se reutilizan para lo público.
+- Validación sin excepciones: hoy los métodos Update de PricingSettings, SyncSettings y
+  StoreSettings, y las fábricas y Update de PricingRule y PriceRange, lanzan excepciones.
+  Sigue el patrón de PriceRangeValidator: agrega en el dominio un método estático Validate
+  por cada uno, que reciba los mismos valores y devuelva la lista de errores, con un código
+  por problema (enum) y el valor que lo causó. Reutiliza las constantes de límites que ya existen.
+  Los casos de uso llaman a Validate primero y, si hay errores, devuelven Result con esos
+  códigos sin tocar la entidad. Las excepciones de Update y de las fábricas se quedan solo
+  como red de seguridad, y deben usar la misma validación para no duplicar reglas.
+- Si hay varios errores, se devuelven todos juntos, para que el panel los muestre de una vez.
 
 Pruebas en Application.Tests de cada caso de uso, incluyendo validaciones y la vista previa.
+Pruebas en Domain.Tests de cada método Validate: un caso por código de error, un caso válido
+y un caso con varios errores a la vez.
 Al terminar: build, test, resumen y detente.
 ```
 
@@ -235,6 +246,8 @@ Al terminar: build, test, resumen y detente.
 - [ ] La vista previa y el precio real usan exactamente el mismo cálculo.
 - [ ] No se puede tener dos reglas activas para la misma marca o producto.
 - [ ] Los códigos de error son entendibles para mostrarlos después en el panel.
+- [ ] Ningún caso de uso usa try/catch para validar; los errores salen de los métodos Validate.
+- [ ] Cada regla de validación existe en un solo lugar (Validate), no repetida en Update.
 
 ---
 
