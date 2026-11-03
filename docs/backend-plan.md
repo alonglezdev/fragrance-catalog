@@ -197,6 +197,20 @@ En Application/Sync/ crea el caso de uso SyncSupplierCatalog según la sección 
 Divide la lógica para que se lea fácil: por ejemplo, un paso que obtiene los datos
 y otro que calcula el plan de cambios (función pura y testeable) antes de aplicarlo.
 
+Acceso a datos (esta fase define el patrón que siguen las fases 5 y 6):
+- Application no referencia EF Core. Define en Application/Sync/ una interfaz pequeña, hecha
+  para este caso de uso (por ejemplo ICatalogSyncStore): leer lo que el sync necesita comparar
+  (productos del proveedor con su precio actual, marcas existentes, SyncSettings) y guardar
+  el resultado del plan junto con el SyncRun en una sola transacción. Nada de repositorios
+  genéricos (IRepository<T>) ni de exponer IQueryable.
+- El SyncRun se guarda también cuando el sync falla, en una operación aparte que no depende
+  de la transacción de cambios.
+- Infrastructure implementa la interfaz con FragranceCatalogDbContext, en
+  Infrastructure/Sync/ (organización por feature).
+- Pruebas: el caso de uso con un fake en memoria en Application.Tests; la implementación
+  con EF Core en Infrastructure.Tests con Testcontainers (guardar un plan completo y verificar
+  que una falla a mitad no deja cambios a medias).
+
 Errores del proveedor (notas de la Fase 3):
 - Hoy MagnaCatalogSource deja salir HttpRequestException (500, o 404 si quitaron el producto
   entre leer el sitemap y bajar la página) y TimeoutException, además de SupplierCatalogException.
@@ -225,6 +239,7 @@ Al terminar: build, test, resumen y detente.
 - [ ] El `SyncRun` se guarda también cuando falla, incluido el caso en que falla el sitemap.
 - [ ] Application no menciona `HttpRequestException` ni `TimeoutException`.
 - [ ] Se usa una sola instancia del lector del proveedor durante todo el sync.
+- [ ] Application no tiene `using Microsoft.EntityFrameworkCore`; la interfaz de datos está hecha a la medida del sync.
 
 ---
 
